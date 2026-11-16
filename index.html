@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>贪吃蛇</title>
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+
+      :root{
+        --bg:#eef6ec;
+        --panel:#ffffff;
+        --panel-2:#f4f9f2;
+        --ink:#1c2b1e;
+        --muted:#5f7263;
+        --line:#d7e6d4;
+        --accent:#2f9e44;
+        --accent-dark:#237a35;
+        --accent-soft:#e3f4e2;
+        --red:#e03131;
+        --board:#17301f;
+        --board-grid:rgba(255,255,255,.055);
+        --shadow:0 10px 30px rgba(28,60,32,.12);
+        --warn-bg:#fff3bf;
+        --warn-ink:#5c4300;
+        --warn-line:#e8c93c;
+      }
+      @media (prefers-color-scheme: dark){
+        :root{
+          --bg:#0f1a12;
+          --panel:#18261b;
+          --panel-2:#1e2f22;
+          --ink:#eef6ec;
+          --muted:#a7bda9;
+          --line:#2c4431;
+          --accent:#51cf66;
+          --accent-dark:#40b657;
+          --accent-soft:#223d28;
+          --board:#0d2013;
+          --board-grid:rgba(255,255,255,.05);
+          --shadow:0 10px 30px rgba(0,0,0,.35);
+          --warn-bg:#3d3413;
+          --warn-ink:#ffe08a;
+          --warn-line:#8a7420;
+        }
+      }
+      *{box-sizing:border-box}
+      html,body{margin:0;padding:0}
+      body{
+        background:var(--bg);
+        color:var(--ink);
+        font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+        -webkit-tap-highlight-color:transparent;
+        touch-action:manipulation;
+      }
+      .wrap{max-width:560px;margin:0 auto;padding:20px 16px 36px}
+      header{text-align:center;margin:6px 0 16px}
+      h1{font-size:34px;line-height:1.1;margin:0;letter-spacing:.02em;font-weight:800}
+      h1 .snake-emoji{font-size:30px;vertical-align:2px}
+      .sub{margin:8px 0 0;color:var(--muted);font-size:15px;line-height:1.5}
+
+      .js-warning{
+        background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line);
+        border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.65;margin-bottom:12px;
+      }
+      .js-warning strong{font-weight:800}
+
+      .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+      .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 8px;text-align:center;box-shadow:var(--shadow)}
+      .stat .label{font-size:12px;color:var(--muted);letter-spacing:.06em}
+      .stat .value{font-size:26px;font-weight:800;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
+      .stat .value.red{color:var(--red)}
+
+      .board-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px;box-shadow:var(--shadow)}
+      .board-wrap{position:relative;border-radius:12px;overflow:hidden;background:var(--board)}
+      canvas{display:block;width:100%;aspect-ratio:1/1;touch-action:none}
+      .overlay{
+        position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        text-align:center;padding:20px;background:rgba(10,24,14,.72);color:#fff;backdrop-filter:blur(2px);
+      }
+      .overlay[hidden]{display:none}
+      .overlay .big{font-size:28px;font-weight:800;margin:0 0 6px}
+      .overlay .small{font-size:15px;color:#d8ecd6;margin:0 0 18px;line-height:1.6}
+      .overlay .final{font-size:15px;color:#ffe08a;font-weight:700}
+
+      .btn{
+        appearance:none;border:0;cursor:pointer;border-radius:999px;
+        padding:10px 22px;min-height:44px;font-size:16px;font-weight:700;font-family:inherit;
+        background:var(--accent);color:#fff;transition:transform .08s ease, background .15s ease;
+        touch-action:manipulation;-webkit-user-select:none;user-select:none;pointer-events:auto;
+      }
+      .btn:active{transform:scale(.97)}
+      .btn:hover{background:var(--accent-dark)}
+      .btn.ghost{background:var(--panel);color:var(--ink);border:1.5px solid var(--line)}
+      .btn.ghost:hover{background:var(--panel-2)}
+      .btn:disabled{opacity:.45;cursor:default;transform:none}
+
+      .controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+      .row-label{font-size:13px;color:var(--muted);text-align:center;margin:18px 0 8px;letter-spacing:.04em}
+
+      .speeds{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;box-shadow:var(--shadow)}
+      .speeds button{
+        flex:1;border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:15px;font-weight:700;
+        border-radius:999px;padding:8px 4px;min-height:40px;cursor:pointer;touch-action:manipulation;
+      }
+      .speeds button.active{background:var(--accent);color:#fff}
+      .toggles{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+      .toggle{
+        display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+        border-radius:999px;padding:8px 14px;min-height:40px;font-size:14px;cursor:pointer;user-select:none;
+      }
+      .toggle input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+
+      .dpad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:18px auto 4px}
+      .dpad button{
+        border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:16px;
+        font-size:24px;line-height:1;cursor:pointer;box-shadow:var(--shadow);min-height:64px;
+        display:flex;align-items:center;justify-content:center;touch-action:manipulation;
+      }
+      .dpad button:active{background:var(--accent-soft);transform:scale(.95)}
+      .dpad .empty{visibility:hidden}
+      .dpad .center-dot{background:var(--accent-soft);border-radius:16px;border:1px dashed var(--line)}
+
+      .hint{text-align:center;color:var(--muted);font-size:13.5px;line-height:1.7;margin:16px 4px 0}
+      .hint kbd{
+        background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
+        padding:1px 7px;font-family:inherit;font-size:12.5px;color:var(--ink);
+      }
+      @media (min-width:721px){
+        .dpad{display:none}
+      }
+      @media (max-width:720px){
+        .hint .kb{display:none}
+      }
+      @media (prefers-reduced-motion: reduce){
+        .btn{transition:none}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1><span class="snake-emoji" aria-hidden="true">🐍</span> 贪吃蛇</h1>
+        <p class="sub">吃掉苹果让蛇变长，别撞墙、也别咬到自己。</p>
+      </header>
+
+      <div class="js-warning" id="jsWarning" role="alert">
+        <strong>如果点「开始游戏」没反应：</strong>你现在多半是在微信或「文件」App 的预览里打开的，预览只显示页面、不会运行游戏。请点右上角的「…」或分享按钮，选择<strong>「用 Safari 打开」</strong>（安卓选 Chrome / 浏览器打开），再点开始就能玩了。
+      </div>
+      <noscript>
+        <div class="js-warning" role="alert"><strong>这个游戏需要浏览器运行脚本才能玩。</strong>请用 Safari 或 Chrome 打开这个文件，不要在微信或文件预览里直接打开。</div>
+      </noscript>
+
+      <section class="stats" aria-label="分数">
+        <div class="stat"><div class="label">得分</div><div class="value" id="score">0</div></div>
+        <div class="stat"><div class="label">最高分（本次打开）</div><div class="value" id="best">0</div></div>
+        <div class="stat"><div class="label">长度</div><div class="value" id="length">4</div></div>
+      </section>
+
+      <div class="board-card">
+        <div class="board-wrap">
+          <canvas id="game" width="600" height="600" aria-label="贪吃蛇游戏画面"></canvas>
+          <div class="overlay" id="overlay">
+            <p class="big" id="overlayTitle">准备好了吗？</p>
+            <p class="small" id="overlayText">用方向键、WASD 或滑动屏幕控制小蛇。<br>点下面的按钮开始。</p>
+            <p class="final" id="overlayFinal" hidden></p>
+            <button class="btn" id="overlayBtn" type="button" onclick="if(window.__snakeStart)window.__snakeStart()">开始游戏</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="startBtn" type="button" onclick="if(window.__snakeStart)window.__snakeStart()">开始</button>
+        <button class="btn ghost" id="pauseBtn" type="button" disabled>暂停</button>
+        <button class="btn ghost" id="restartBtn" type="button" onclick="if(window.__snakeStart)window.__snakeStart()">重新开始</button>
+      </div>
+
+      <p class="row-label">速度</p>
+      <div class="speeds" role="group" aria-label="选择速度">
+        <button type="button" data-speed="slow">慢速</button>
+        <button type="button" data-speed="normal" class="active">普通</button>
+        <button type="button" data-speed="fast">快速</button>
+        <button type="button" data-speed="turbo">极速</button>
+      </div>
+
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="soundToggle" checked> 音效</label>
+        <label class="toggle"><input type="checkbox" id="wallToggle"> 穿墙模式（撞墙不死）</label>
+      </div>
+
+      <div class="dpad" aria-label="方向按钮">
+        <span class="empty"></span>
+        <button type="button" data-dir="up" aria-label="向上">▲</button>
+        <span class="empty"></span>
+        <button type="button" data-dir="left" aria-label="向左">◀</button>
+        <span class="center-dot" aria-hidden="true"></span>
+        <button type="button" data-dir="right" aria-label="向右">▶</button>
+        <span class="empty"></span>
+        <button type="button" data-dir="down" aria-label="向下">▼</button>
+        <span class="empty"></span>
+      </div>
+
+      <p class="hint">
+        <span class="kb">电脑：按 <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> 或 <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 移动，<kbd>空格</kbd> 暂停 / 继续。<br></span>
+        手机：在棋盘上滑动，或点下面的方向按钮。每吃一个苹果 +10 分，蛇会越吃越快一点点。
+      </p>
+    </div>
+
+    <script>
+      (function(){
+        'use strict';
+
+        function byId(id){ return document.getElementById(id); }
+
+        var COLS = 20, ROWS = 20;
+        var canvas = byId('game');
+        var ctx = null;
+        try { ctx = canvas ? canvas.getContext('2d') : null; } catch(e) { ctx = null; }
+        var scoreEl = byId('score');
+        var bestEl = byId('best');
+        var lengthEl = byId('length');
+        var overlay = byId('overlay');
+        var overlayTitle = byId('overlayTitle');
+        var overlayText = byId('overlayText');
+        var overlayFinal = byId('overlayFinal');
+        var overlayBtn = byId('overlayBtn');
+        var startBtn = byId('startBtn');
+        var pauseBtn = byId('pauseBtn');
+        var restartBtn = byId('restartBtn');
+        var soundToggle = byId('soundToggle');
+        var wallToggle = byId('wallToggle');
+        var jsWarning = byId('jsWarning');
+
+        // 脚本已经跑起来了：把“脚本没运行”的提示藏起来。
+        // 如果用户是在微信 / 文件预览里打开的，脚本根本不会执行，
+        // 这条提示会一直留着，告诉他改用浏览器打开。
+        if (jsWarning) jsWarning.style.display = 'none';
+
+        var SPEEDS = { slow: 170, normal: 125, fast: 90, turbo: 62 };
+        var speedKey = 'normal';
+
+        var snake = null, dir = {x:1,y:0}, pendingDirs = [], food = {x:15,y:10};
+        var score = 0, best = 0, eaten = 0;
+        var state = 'ready'; // ready | playing | paused | over
+        var timer = null;
+        var audioCtx = null;
+        var lastStartAt = 0;
+
+        function reset(){
+          snake = [ {x:9,y:10},{x:8,y:10},{x:7,y:10},{x:6,y:10} ];
+          dir = {x:1,y:0};
+          pendingDirs = [];
+          score = 0; eaten = 0;
+          placeFood();
+          updateStats();
+        }
+        function placeFood(){
+          if(!snake) return;
+          for(var tries = 0; tries < 500; tries++){
+            var f = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
+            var onSnake = false;
+            for(var i = 0; i < snake.length; i++){
+              if(snake[i].x === f.x && snake[i].y === f.y){ onSnake = true; break; }
+            }
+            if(!onSnake){ food = f; return; }
+          }
+        }
+        function updateStats(){
+          if(scoreEl) scoreEl.textContent = score;
+          if(bestEl) bestEl.textContent = best;
+          if(lengthEl) lengthEl.textContent = snake ? snake.length : 4;
+        }
+        function currentInterval(){
+          var base = SPEEDS[speedKey] || SPEEDS.normal;
+          var faster = Math.floor(eaten/5) * 6; // 每吃5个略微加速
+          return Math.max(42, base - faster);
+        }
+        function beep(freq, dur, type){
+          if(soundToggle && !soundToggle.checked) return;
+          try{
+            if(!audioCtx){
+              var AC = window.AudioContext || window.webkitAudioContext;
+              if(!AC) return;
+              audioCtx = new AC();
+            }
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = type || 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + dur);
+          }catch(e){}
+        }
+        function startLoop(){
+          stopLoop();
+          try { timer = setInterval(tick, currentInterval()); } catch(e) { timer = null; }
+        }
+        function stopLoop(){ if(timer){ clearInterval(timer); timer = null; } }
+
+        function setOverlay(show, title, text, finalText, btnText){
+          if(!overlay) return;
+          overlay.hidden = !show;
+          overlay.style.display = show ? '' : 'none';
+          if(title !== undefined && overlayTitle) overlayTitle.textContent = title;
+          if(text !== undefined && overlayText) overlayText.innerHTML = text;
+          if(overlayFinal){
+            if(finalText){ overlayFinal.hidden = false; overlayFinal.textContent = finalText; }
+            else overlayFinal.hidden = true;
+          }
+          if(btnText && overlayBtn) overlayBtn.textContent = btnText;
+        }
+        function showStartError(){
+          state = 'ready';
+          setOverlay(true, '游戏没能启动',
+            '请用 Safari 或 Chrome 打开这个文件再试一次，不要在微信或文件预览里直接打开。',
+            null, '再试一次');
+          if(jsWarning) jsWarning.style.display = '';
+        }
+        function startGame(){
+          // 同一次点击可能被多个绑定重复触发：
+          // 游戏刚开始 300ms 内的重复调用直接忽略，游戏结束后的重开不受影响
+          var now = Date.now();
+          if(state === 'playing' && now - lastStartAt < 300) return;
+          lastStartAt = now;
+          try{
+            // 先关掉遮罩、给出即时反馈，再做初始化：
+            // 就算后面某一步出错，用户也能立刻看到反应，而不是“点了没动静”
+            state = 'playing';
+            setOverlay(false);
+            reset();
+            if(startBtn) startBtn.disabled = true;
+            if(pauseBtn){ pauseBtn.disabled = false; pauseBtn.textContent = '暂停'; }
+            safeDraw();
+            startLoop();
+          }catch(e){
+            showStartError();
+          }
+        }
+        function pauseGame(){
+          if(state !== 'playing') return;
+          state = 'paused'; stopLoop();
+          if(pauseBtn) pauseBtn.textContent = '继续';
+          setOverlay(true, '已暂停', '休息一下，随时继续。', null, '继续游戏');
+        }
+        function resumeGame(){
+          if(state !== 'paused') return;
+          state = 'playing';
+          setOverlay(false);
+          if(pauseBtn) pauseBtn.textContent = '暂停';
+          startLoop();
+        }
+        function togglePause(){
+          if(state === 'playing') pauseGame();
+          else if(state === 'paused') resumeGame();
+        }
+        function gameOver(){
+          state = 'over'; stopLoop();
+          if(score > best){ best = score; }
+          updateStats();
+          beep(160, 0.35, 'sawtooth');
+          if(startBtn){ startBtn.disabled = false; startBtn.textContent = '再来一局'; }
+          if(pauseBtn) pauseBtn.disabled = true;
+          setOverlay(true, '游戏结束 🍎',
+            '撞到了，蛇蛇下班了。',
+            '本局得分 ' + score + ' 分 · 长度 ' + (snake ? snake.length : 0),
+            '再来一局');
+        }
+        function setDir(nx, ny){
+          if(state !== 'playing') return;
+          var last = pendingDirs.length ? pendingDirs[pendingDirs.length-1] : dir;
+          if(last.x === -nx && last.y === -ny) return; // 不能掉头
+          if(last.x === nx && last.y === ny) return;
+          if(pendingDirs.length < 3) pendingDirs.push({x:nx,y:ny});
+        }
+        function tick(){
+          try{
+            if(pendingDirs.length) dir = pendingDirs.shift();
+            var head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+            if(wallToggle && wallToggle.checked){
+              head.x = (head.x + COLS) % COLS;
+              head.y = (head.y + ROWS) % ROWS;
+            } else if(head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS){
+              safeDraw(); gameOver(); return;
+            }
+            var willEat = head.x === food.x && head.y === food.y;
+            var bodyToCheck = willEat ? snake : snake.slice(0, -1);
+            var hitSelf = false;
+            for(var i = 0; i < bodyToCheck.length; i++){
+              if(bodyToCheck[i].x === head.x && bodyToCheck[i].y === head.y){ hitSelf = true; break; }
+            }
+            if(hitSelf){ safeDraw(); gameOver(); return; }
+            snake.unshift(head);
+            if(willEat){
+              score += 10; eaten++;
+              beep(660, 0.09); setTimeout(function(){ beep(880, 0.08); }, 60);
+              placeFood();
+              startLoop(); // 刷新速度
+            } else {
+              snake.pop();
+            }
+            updateStats();
+          }catch(e){}
+          safeDraw();
+        }
+
+        function safeDraw(){ try { draw(); } catch(e) {} }
+        function draw(){
+          if(!ctx || !canvas || !snake || !food) return;
+          var W = canvas.width, H = canvas.height;
+          var cw = W / COLS, ch = H / ROWS;
+          var dark = false;
+          try { dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch(e) {}
+          ctx.fillStyle = dark ? '#0d2013' : '#17301f';
+          ctx.fillRect(0,0,W,H);
+          ctx.strokeStyle = dark ? 'rgba(255,255,255,.05)' : 'rgba(255,255,255,.055)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          for(var i=1;i<COLS;i++){ ctx.moveTo(i*cw+.5,0); ctx.lineTo(i*cw+.5,H); }
+          for(var j=1;j<ROWS;j++){ ctx.moveTo(0,j*ch+.5); ctx.lineTo(W,j*ch+.5); }
+          ctx.stroke();
+
+          // 苹果
+          var fx = food.x*cw + cw/2, fy = food.y*ch + ch/2, r = cw*0.36;
+          ctx.fillStyle = '#e03131';
+          ctx.beginPath(); ctx.arc(fx, fy+2, r, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,.35)';
+          ctx.beginPath(); ctx.arc(fx - r*0.35, fy - r*0.3, r*0.28, 0, Math.PI*2); ctx.fill();
+          ctx.strokeStyle = '#5c3a17'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(fx, fy - r*0.7); ctx.quadraticCurveTo(fx+3, fy - r*1.15, fx + r*0.4, fy - r*1.05); ctx.stroke();
+          ctx.fillStyle = '#37b24d';
+          ctx.beginPath();
+          if(ctx.ellipse){
+            ctx.ellipse(fx + r*0.42, fy - r*0.95, r*0.34, r*0.18, -0.5, 0, Math.PI*2);
+          } else {
+            ctx.arc(fx + r*0.42, fy - r*0.95, r*0.24, 0, Math.PI*2);
+          }
+          ctx.fill();
+
+          // 蛇身
+          for(var k = snake.length - 1; k >= 0; k--){
+            var s = snake[k];
+            var x = s.x*cw, y = s.y*ch;
+            var t = snake.length <= 1 ? 0 : k / (snake.length - 1);
+            var pad = 2 + t*2.2;
+            ctx.fillStyle = k === 0 ? '#69db7c' : ('hsl(' + (128 - t*18) + ', 52%, ' + (46 - t*10) + '%)');
+            roundRect(x + pad, y + pad, cw - pad*2, ch - pad*2, (cw - pad*2) * 0.32);
+            ctx.fill();
+          }
+          // 蛇头眼睛
+          var hd = snake[0];
+          var cx = hd.x*cw + cw/2, cy = hd.y*ch + ch/2;
+          var ex = dir.x, ey = dir.y;
+          var px = -ey, py = ex; // 垂直方向
+          drawEye(cx + ex*cw*0.14 + px*cw*0.17, cy + ey*ch*0.14 + py*ch*0.17);
+          drawEye(cx + ex*cw*0.14 - px*cw*0.17, cy + ey*ch*0.14 - py*ch*0.17);
+          function drawEye(exx, eyy){
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(exx, eyy, cw*0.11, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#17301f';
+            ctx.beginPath(); ctx.arc(exx + ex*2, eyy + ey*2, cw*0.055, 0, Math.PI*2); ctx.fill();
+          }
+        }
+        function roundRect(x,y,w,h,r){
+          if(ctx.roundRect){
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, r);
+            return;
+          }
+          ctx.beginPath();
+          ctx.moveTo(x+r,y);
+          ctx.arcTo(x+w,y,x+w,y+h,r);
+          ctx.arcTo(x+w,y+h,x,y+h,r);
+          ctx.arcTo(x,y+h,x,y,r);
+          ctx.arcTo(x,y,x+w,y,r);
+          ctx.closePath();
+        }
+
+        // 同时监听 click 和 touchend，并做防重复触发：
+        // 有些手机内置浏览器 click 迟迟不发、或被双击缩放吞掉，
+        // 只绑 click 就会出现“点了没反应”；touchend 能保证点下去就有反应。
+        function bindTap(el, fn, dedupeMs){
+          if(!el) return;
+          var last = 0;
+          var windowMs = dedupeMs || 350;
+          function handler(e){
+            var now = Date.now();
+            if(now - last < windowMs) return;
+            last = now;
+            fn(e);
+          }
+          el.addEventListener('click', handler);
+          el.addEventListener('touchend', function(e){
+            if(e && e.cancelable) e.preventDefault(); // 阻止随后的模拟 click
+            handler(e);
+          }, {passive:false});
+        }
+
+        // 键盘
+        document.addEventListener('keydown', function(e){
+          var k = e.key;
+          if(k === 'ArrowUp' || k === 'w' || k === 'W'){ setDir(0,-1); e.preventDefault(); }
+          else if(k === 'ArrowDown' || k === 's' || k === 'S'){ setDir(0,1); e.preventDefault(); }
+          else if(k === 'ArrowLeft' || k === 'a' || k === 'A'){ setDir(-1,0); e.preventDefault(); }
+          else if(k === 'ArrowRight' || k === 'd' || k === 'D'){ setDir(1,0); e.preventDefault(); }
+          else if(k === ' '){
+            e.preventDefault();
+            if(state === 'playing') pauseGame();
+            else if(state === 'paused') resumeGame();
+            else startGame();
+          }
+        });
+        // 滑动
+        var touchX = null, touchY = null;
+        if(canvas){
+          canvas.addEventListener('touchstart', function(e){
+            var t = e.changedTouches[0]; touchX = t.clientX; touchY = t.clientY;
+          }, {passive:true});
+          canvas.addEventListener('touchmove', function(e){
+            if(touchX === null) return;
+            var t = e.changedTouches[0];
+            var dx = t.clientX - touchX, dy = t.clientY - touchY;
+            if(Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+            if(Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
+            else setDir(0, dy > 0 ? 1 : -1);
+            touchX = t.clientX; touchY = t.clientY;
+            e.preventDefault();
+          }, {passive:false});
+          canvas.addEventListener('touchend', function(){ touchX = touchY = null; });
+        }
+
+        // 按钮：多重兜底绑定
+        // 1) bindTap（click + touchend）；2) 按钮上的内联 onclick 调 window.__snakeStart；
+        // 3) 点遮罩空白处也能开始。任意一条生效，游戏就能开始。
+        window.__snakeStart = function(){
+          if(state === 'paused') resumeGame(); else startGame();
+        };
+        bindTap(startBtn, startGame);
+        bindTap(restartBtn, startGame);
+        bindTap(overlayBtn, function(){
+          if(state === 'paused') resumeGame(); else startGame();
+        });
+        bindTap(pauseBtn, togglePause);
+        if(overlay){
+          overlay.addEventListener('click', function(e){
+            if(e.target === overlay || e.target === overlayTitle || e.target === overlayText){
+              if(state === 'paused') resumeGame();
+              else if(state !== 'playing') startGame();
+            }
+          });
+        }
+
+        var dpadBtns = document.querySelectorAll('.dpad button[data-dir]');
+        for(var d = 0; d < dpadBtns.length; d++){
+          (function(b){
+            bindTap(b, function(){
+              var dirName = b.getAttribute('data-dir');
+              if(dirName === 'up') setDir(0,-1);
+              if(dirName === 'down') setDir(0,1);
+              if(dirName === 'left') setDir(-1,0);
+              if(dirName === 'right') setDir(1,0);
+            }, 200);
+          })(dpadBtns[d]);
+        }
+        var speedBtns = document.querySelectorAll('.speeds button');
+        for(var s2 = 0; s2 < speedBtns.length; s2++){
+          (function(b){
+            bindTap(b, function(){
+              for(var q = 0; q < speedBtns.length; q++) speedBtns[q].classList.remove('active');
+              b.classList.add('active');
+              speedKey = b.getAttribute('data-speed');
+              if(state === 'playing') startLoop();
+            });
+          })(speedBtns[s2]);
+        }
+        document.addEventListener('visibilitychange', function(){
+          if(document.hidden && state === 'playing') pauseGame();
+        });
+        try{
+          if(window.matchMedia){
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            if(mq.addEventListener) mq.addEventListener('change', safeDraw);
+            else if(mq.addListener) mq.addListener(safeDraw);
+          }
+        }catch(e){}
+
+        // 初始化：任何一步出错都给出看得见的提示，而不是静默失效
+        try{
+          reset();
+          safeDraw();
+        }catch(e){
+          showStartError();
+        }
+      })();
+    </script>
+  </body>
+</html>
